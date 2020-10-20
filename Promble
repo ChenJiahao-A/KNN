@@ -1,0 +1,1 @@
+在sort_mid()中，应注意数组的=、浅拷贝copy、深拷贝deepcopy的区别。
