@@ -40,6 +40,48 @@ def sort_mid(x, mid, axis):
             break
 
 
+class MaxHeap:
+    """
+    create a max_heap with k nodeplus
+    """
+
+    def __init__(self, k=0):
+        self.k = k
+        self.heap = []
+
+    def insert(self, node):
+        self.heap.append(node)
+        pos = len(self.heap) - 1
+        while pos > 0:
+            parent = pos - 1 >> 1
+            if node[1] <= self.heap[parent][1]:
+                break
+            self.heap[pos] = self.heap[parent]
+            pos = parent
+        self.heap[pos] = node
+
+    def replace(self, node):
+        self.heap[0] = node
+        pos = 0
+        son = (pos << 1) + 1
+        while son <= self.k - 1:
+            if son + 1 <= self.k - 1 and self.heap[son + 1][1] > self.heap[son][1]:
+                son = son + 1
+            if node[1] < self.heap[son][1]:
+                self.heap[pos] = self.heap[son]
+                pos = son
+                son = (pos << 1) + 1
+            else:
+                break
+        self.heap[pos] = node
+
+    def push(self, node):
+        if len(self.heap) < self.k:
+            self.insert(node)
+        else:
+            self.replace(node)
+
+
 class KDNode:
     def __init__(self, axis=None, data=None, label=None, parent=None, left=None, right=None, sign=0):
         self.axis = axis
@@ -124,7 +166,6 @@ class KDTree:
             """
             while current.parent is not None:
                 current.sign = 1
-                print(current.data)
                 if norm(current.parent.data - target) < distance:
                     knode = current.parent
                     distance = norm(current.parent.data - target)
@@ -144,6 +185,66 @@ class KDTree:
                 current = current.parent
             return knode, distance
         return back_off(nn_knode, nn_distance, current_node, target_x)
+
+    def search_knn(self, target_x, k):
+        """
+        find the k nearst neighbor
+        """
+        def arrive_leaf(target, c_knode):
+            """
+            :param target: the target sample
+            :param c_knode: current knode
+            :return: leaf knode
+            """
+            if c_knode is None:
+                return
+            while not(c_knode.left is None and c_knode.right is None):
+                if target[c_knode.axis] <= c_knode.data[c_knode.axis]:
+                    if c_knode.left is None:
+                        c_knode = c_knode.right
+                    else:
+                        c_knode = c_knode.left
+                else:
+                    if c_knode.right is None:
+                        c_knode = c_knode.left
+                    else:
+                        c_knode = c_knode.right
+            return c_knode
+
+        def back_off():
+            c_kdnode = arrive_leaf(target_x, self.root)
+            c_kdnode.sign = 1
+            distance = norm(target_x - c_kdnode.data)
+            kheap = MaxHeap(k)
+            kheap.push((c_kdnode, distance))
+
+            while c_kdnode.parent is not None:
+                if c_kdnode.parent.sign != 1 and\
+                        (len(kheap.heap) < k or norm(c_kdnode.parent.data - target_x) < kheap.heap[0][1]):
+                    distance = norm(c_kdnode.parent.data - target_x)
+                    kheap.push((c_kdnode.parent, distance))
+                    c_kdnode.parent.sign = 1
+                if len(kheap.heap) < k or \
+                        abs(target_x[c_kdnode.parent.axis] - c_kdnode.parent.data[c_kdnode.parent.axis]) \
+                        < kheap.heap[0][1]:
+                    if c_kdnode.parent.left is not None and c_kdnode.parent.left.sign != 1:
+                        c_kdnode = arrive_leaf(target_x, c_kdnode.parent.left)
+                        c_kdnode.sign = 1
+                        if len(kheap.heap) < k or norm(c_kdnode.data - target_x) < kheap.heap[0][1]:
+                            distance = norm(c_kdnode.data - target_x)
+                            kheap.push((c_kdnode, distance))
+                        continue
+                    if c_kdnode.parent.right is not None and c_kdnode.parent.right.sign != 1:
+                        c_kdnode = arrive_leaf(target_x, c_kdnode.parent.right)
+                        c_kdnode.sign = 1
+                        if len(kheap.heap) < k or norm(c_kdnode.data - target_x) < kheap.heap[0][1]:
+                            distance = norm(c_kdnode.data - target_x)
+                            kheap.push((c_kdnode, distance))
+                        continue
+                c_kdnode = c_kdnode.parent
+                c_kdnode.sign = 1
+            return kheap
+        return back_off()
 
 
 def generate(workbook, worksheet, dimension):
@@ -209,21 +310,21 @@ def print_tree(kdnode, graph, up, down, left, right):
     draw the regions splits by the kd tree
     up, down, left, right is the limit of the sub-region
     """
-    x0 = [left, right]
-    x1 = [down, up]
+    horizontal = [left, right]
+    vertical = [down, up]
 
     if kdnode is None:
         return
     if kdnode.axis == 0:
-        x0[0] = (kdnode.data[0])
-        x0[1] = (kdnode.data[0])
-        graph.plot(x0, x1)
+        horizontal[0] = (kdnode.data[0])
+        horizontal[1] = (kdnode.data[0])
+        graph.plot(horizontal, vertical)
         print_tree(kdnode.left, graph, up, down, left, kdnode.data[0])
         print_tree(kdnode.right, graph, up, down, kdnode.data[0], right)
     elif kdnode.axis == 1:
-        x1[0] = (kdnode.data[1])
-        x1[1] = (kdnode.data[1])
-        graph.plot(x0, x1)
+        vertical[0] = (kdnode.data[1])
+        vertical[1] = (kdnode.data[1])
+        graph.plot(horizontal, vertical)
         print_tree(kdnode.left, graph, kdnode.data[1], down, left, right)
         print_tree(kdnode.right, graph, up, kdnode.data[1], left, right)
 
@@ -255,10 +356,19 @@ print_tree(tree.root, gra, 1110, -1100, -1100, 1110)
 x1 = 500
 x2 = 500
 gra.scatter([x1], [x2], c='black')
-leaf1, distance1 = tree.search_nn(np.array([x1, x2]))
+# find k samples
+ki = 10
 
+kset = tree.search_knn(np.array([x1, x2]), ki)
+
+distance1 = kset.heap[0][1]
+leaf1 = kset.heap[0][0]
 cir = Circle((x1, x2), distance1, fill=False)
 gra.add_patch(cir)
 gra.plot([x1, leaf1.data[0]], [x2, leaf1.data[1]], c='black')
 
+#  show the result
+for z in range(len(kset.heap)):
+    print(kset.heap[z][0].data)
+print(len(kset.heap))
 plt.show()
