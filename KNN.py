@@ -126,66 +126,6 @@ class KDTree:
         x = np.hstack((x, y))
         self.root = create_(x, 0)
 
-    def search_nn(self, target_x):
-        """
-        find the nearst neighbor
-        :param target_x:
-        """
-        def arrive_leaf(target, c_knode):
-            """
-            :param target: the target sample
-            :param c_knode: current knode
-            :return: leaf knode
-            """
-            if c_knode is None:
-                return
-            while not(c_knode.left is None and c_knode.right is None):
-                if target[c_knode.axis] <= c_knode.data[c_knode.axis]:
-                    if c_knode.left is None:
-                        c_knode = c_knode.right
-                    else:
-                        c_knode = c_knode.left
-                else:
-                    if c_knode.right is None:
-                        c_knode = c_knode.left
-                    else:
-                        c_knode = c_knode.right
-            return c_knode
-
-        nn_knode = arrive_leaf(target_x, self.root)
-        nn_distance = norm(target_x - nn_knode.data)
-        current_node = nn_knode
-
-        def back_off(knode, distance, current, target):
-            """
-            :param knode: the nearst neighbor node currently
-            :param distance: the nearst distance currently
-            :param current: the current node which waits to compare
-            :param target:the target sample
-            :return:
-            """
-            while current.parent is not None:
-                current.sign = 1
-                if norm(current.parent.data - target) < distance:
-                    knode = current.parent
-                    distance = norm(current.parent.data - target)
-                if abs(target[current.parent.axis] - current.parent.data[current.parent.axis]) < distance:
-                    if current.parent.left is not None and current.parent.left.sign != 1:
-                        current = arrive_leaf(target, current.parent.left)
-                        if norm(current.data - target) < distance:
-                            knode = current
-                            distance = norm(current.data - target)
-                        continue
-                    if current.parent.right is not None and current.parent.right.sign != 1:
-                        current = arrive_leaf(target, current.parent.right)
-                        if norm(current.data - target) < distance:
-                            knode = current
-                            distance = norm(current.data - target)
-                        continue
-                current = current.parent
-            return knode, distance
-        return back_off(nn_knode, nn_distance, current_node, target_x)
-
     def search_knn(self, target_x, k):
         """
         find the k nearst neighbor
